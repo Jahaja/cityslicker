@@ -53,8 +53,8 @@ int world_add_city(world *w, city *c) {
 int world_get_city_index_by_latitude(world *w, double latitude) {
     int mid = -1, min = 0;
     int max = w->length - 1;
-    while(max > min) {
-        int mid = min + ((max - min) / 2);
+    while(max >= min) {
+        mid = min + ((max - min) / 2);
         city *c = w->cities[mid];
 
         if(c->latitude < latitude) {
@@ -116,17 +116,18 @@ int main() {
 
     double minlat = 59.8585;
     double maxlat = 61.2545;
-    int city_index;
+    int first_index, last_index;
     city *found;
     
-    city_index = world_get_city_index_by_latitude(w, minlat);
-    found = w->cities[city_index];
-    printf("Index for %f: %d, %d - %s\n", minlat, city_index, found->id, found->name);
+    first_index = world_get_city_index_by_latitude(w, minlat);
+    found = w->cities[first_index];
+    printf("Index for %f: %d, %d - %s\n", minlat, first_index, found->id, found->name);
 
-    city_index = world_get_city_index_by_latitude(w, maxlat);
-    printf("Index: %d\n", city_index);
-    found = w->cities[city_index];
-    printf("Index for %f: %d, %d - %s\n", maxlat, city_index, found->id, found->name);
+    last_index = world_get_city_index_by_latitude(w, maxlat);
+    found = w->cities[last_index];
+    printf("Index for %f: %d, %d - %s\n", maxlat, last_index, found->id, found->name);
+
+    printf("Index diff: %d\n", last_index - first_index);
 
     long long start = ustime();
     int num_lookups = 10000;
