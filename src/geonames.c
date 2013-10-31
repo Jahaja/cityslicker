@@ -1,5 +1,18 @@
 #include "cs.h"
 
+static int compare_cities(const void *p1, const void *p2) {
+    const city *c1 = *(city * const *) p1;
+    const city *c2 = *(city * const *) p2;
+
+    if(c1->latitude > c2->latitude) {
+        return 1;
+    } else if (c1->latitude < c2->latitude) {
+        return -1;
+    } else {
+        return 0;
+    }
+}
+
 static int geonames_load_column(city *c, geonames_column_t col, const char *valbuf, size_t len) {
     char *eptr;
     switch(col) {
@@ -15,6 +28,18 @@ static int geonames_load_column(city *c, geonames_column_t col, const char *valb
     case geonames_longitude:
         c->longitude = strtod(valbuf, &eptr);
         break;
+    case geonames_population:
+        c->population = strtoll(valbuf, &eptr, 10);
+        break;
+    case geonames_feature_class:
+        c->feature_class = valbuf[0];
+        break;
+    case geonames_feature_code:
+        if(len <= FEATURE_CODE_MAX_LENGTH) {
+            memcpy(c->feature_code, valbuf, len);
+            c->feature_code[len] = '\0';
+        }
+        break;
     default:
         // a few columns are ignored.
         break;
@@ -26,7 +51,7 @@ static int geonames_load_column(city *c, geonames_column_t col, const char *valb
 static city *geonames_read_line(const char *buffer, size_t len) {
     city *c = city_create();
 
-    char valbuf[BUFFER_SIZE];
+    char valbuf[COLUMN_BUFFER_SIZE];
     int i, j = 0, vlen = 0;
 
     for(i = 0; i < len; i++) {
@@ -44,11 +69,31 @@ static city *geonames_read_line(const char *buffer, size_t len) {
     return c;
 }
 
+static int geonames_is_valid_feature_code(const char *feature_code) {
+    const char *tbl[] = {
+        "PPL",
+        "PCLI",
+        "PPLA",
+        "ADM1",
+        "PPLL",
+        "PPLC",
+        "PPLF"
+    };
+
+    int i;
+    for(i = 0; i < (sizeof(tbl) / sizeof(tbl[0])); i++) {
+        if(!strcmp(feature_code, tbl[i]))
+            return 1;
+    }
+
+    return 0;
+}
+
 world *geonames_load_file(const char *filename) {
     FILE *f = fopen(filename, "r");
 
-    char buf[BUFFER_SIZE];
-    char linebuf[BUFFER_SIZE];
+    char buf[LINE_BUFFER_SIZE];
+    char linebuf[LINE_BUFFER_SIZE];
     int num_read, linelen = 0;
     int i = 0, j = 0;
 
@@ -61,7 +106,10 @@ world *geonames_load_file(const char *filename) {
                 linelen++;
             } else {
                 city *c = geonames_read_line(linebuf, linelen);
-                world_add_city(w, c);
+
+                if(geonames_is_valid_feature_code(c->feature_code))
+                    world_add_city(w, c);
+
                 j++;
                 linelen = 0;
             }
@@ -69,5 +117,8 @@ world *geonames_load_file(const char *filename) {
     }
 
     fclose(f);
+
+    qsort(w->cities, w->length, sizeof(city *), compare_cities);
+
     return w;
 }

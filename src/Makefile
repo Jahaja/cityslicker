@@ -4,7 +4,7 @@ CC=c99
 
 all: cs
 
-cs: cs.o geonames.o
+cs: cs.o geonames.o net.o
 
 clean:
-	rm -f cs
+	rm -f cs cs.o geonames.o net.o

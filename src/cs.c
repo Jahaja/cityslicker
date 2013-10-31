@@ -1,5 +1,33 @@
 #include "cs.h"
 #include "geonames.h"
+#include "net.h"
+
+static int compare_populations(const void *p1, const void *p2) {
+    const city *c1 = *(city * const *) p1;
+    const city *c2 = *(city * const *) p2;
+
+    if(c1->population > c2->population) {
+        return -1;
+    } else if (c1->population < c2->population) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+long long ustime(void) {
+    struct timeval tv;
+    long long ust;
+
+    gettimeofday(&tv, NULL);
+    ust = ((long long) tv.tv_sec) * 1000000;
+    ust += tv.tv_usec;
+    return ust;
+}
+
+long long mstime(void) {
+    return ustime() / 1000;
+}
 
 city *city_create(void) {
     city *c = malloc(sizeof(city));
@@ -70,73 +98,65 @@ int world_get_city_index_by_latitude(world *w, double latitude) {
     return mid;
 }
 
-int compare_cities(const void *p1, const void *p2) {
-    const city *c1 = *(city * const *) p1;
-    const city *c2 = *(city * const *) p2;
+world *world_get_cities_in_bounding_box(world *w, double minlat, double maxlat, double minlng, double maxlng) {
+    int minindex, maxindex, i, j;
+    city *c;
+    world *bbw;
 
-    if(c1->latitude > c2->latitude) {
-        return 1;
-    } else if (c1->latitude < c2->latitude) {
-        return -1;
-    } else {
-        return 0;
+    minindex = world_get_city_index_by_latitude(w, minlat);
+    maxindex = world_get_city_index_by_latitude(w, maxlat);
+    bbw = world_create();
+
+    for(i = minindex, j = 0; i <= maxindex; i++) {
+        c = w->cities[i];
+        if(c->longitude >= minlng && c->longitude <= maxlng) {
+            world_add_city(bbw, c);
+            j++;
+        }
     }
-}
 
-long long ustime(void) {
-    struct timeval tv;
-    long long ust;
+    qsort(bbw->cities, bbw->length, sizeof(city *), compare_populations);
 
-    gettimeofday(&tv, NULL);
-    ust = ((long long) tv.tv_sec) * 1000000;
-    ust += tv.tv_usec;
-    return ust;
-}
-
-long long mstime(void) {
-    return ustime() / 1000;
+    return bbw;
 }
 
 int main() {
     printf("City slicker, eh?\n");
 
-    world *w = geonames_load_file("../data/SE.txt");
+    world *w = geonames_load_file("../data/allCountries.txt");
     printf("Cities in the world: %d\n", w->length);
     printf("The size of the world: %d\n", w->size);
 
-    printf("Sorting...\n");
-    qsort(w->cities, w->length, sizeof(city *), compare_cities);
-    printf("Done.\n");
+    net_server *server = net_start_server("127.0.0.1", 8082);
+    for (;;) {
+        int cfd;
+        net_command *cmd;
 
-    int i;
-    for(i = 0; i < 20; i++) {
-        city *c = w->cities[i];
-        printf("%d %s %.3f\n", c->id, c->name, c->latitude);
+        if((cfd = net_get_client(net_server)) {
+            if((cmd = net_read_command(cfd))) {
+                printf("Got command from fd %d\n", cfd);
+                // if(cmd->type == net_command_type_bounding_box) {
+                //     double *coords = (double *) cmd->ptr;
+                //     world *res = world_get_cities_in_bounding_box(w, coords[0], coords[1], coords[2], coords[3]);
+                // }
+            }
+        }
+
+        net_close_client(cfd);
     }
 
-    double minlat = 59.8585;
-    double maxlat = 61.2545;
-    int first_index, last_index;
-    city *found;
-    
-    first_index = world_get_city_index_by_latitude(w, minlat);
-    found = w->cities[first_index];
-    printf("Index for %f: %d, %d - %s\n", minlat, first_index, found->id, found->name);
-
-    last_index = world_get_city_index_by_latitude(w, maxlat);
-    found = w->cities[last_index];
-    printf("Index for %f: %d, %d - %s\n", maxlat, last_index, found->id, found->name);
-
-    printf("Index diff: %d\n", last_index - first_index);
-
-    long long start = ustime();
+    long long start = mstime();
     int num_lookups = 10000;
     for(i = 0; i < num_lookups; i++) {
-        world_get_city_index_by_latitude(w, minlat);
+        world_get_cities_in_bounding_box(w, 59.1509666443, 59.6238327026, 17.5449085236, 18.6245002747);
     }
-    long long elapsed = ustime() - start;
+    long long elapsed = mstime() - start;
 
-    printf("Time elapsed for %d latitude lookups %lld us\n", num_lookups, elapsed);
+    printf("Time elapsed for %d lookups: %lld ms (%.2fms per lookup)\n", num_lookups, elapsed, (elapsed / (float) num_lookups));
+
+    char inputbuf[100];
+    printf("Inputz pls:\n");
+    fgets(inputbuf, sizeof(inputbuf), stdin);
 
     world_destroy(w);
 

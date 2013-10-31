@@ -8,9 +8,11 @@
 #ifndef CS_H
 #define CS_H
 
-#define BUFFER_SIZE 4096
+#define LINE_BUFFER_SIZE 1024*30
+#define COLUMN_BUFFER_SIZE 1024*20
 #define WORLD_MIN_SIZE 10000
 #define WORLD_RESIZE_FACTOR 2
+#define FEATURE_CODE_MAX_LENGTH 10
 
 typedef enum {
     geonames_id,
@@ -39,6 +41,10 @@ typedef struct city {
     char *name;
     double latitude;
     double longitude;
+    long long population;
+    int woe_type;
+    char feature_class;
+    char feature_code[FEATURE_CODE_MAX_LENGTH + 1];
 } city;
 
 typedef struct world {
