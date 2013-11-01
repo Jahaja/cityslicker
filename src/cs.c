@@ -62,7 +62,6 @@ int world_destroy(world *w) {
 int world_add_city(world *w, city *c) {
     if(w->length >= w->size) {
         int newsize = w->size * WORLD_RESIZE_FACTOR;
-        printf("Resizing to %d\n", newsize);
         city **tc = realloc(w->cities, sizeof(city *) * newsize);
         if(!tc) {
             // handle memory error
@@ -123,41 +122,21 @@ world *world_get_cities_in_bounding_box(world *w, double minlat, double maxlat, 
 int main() {
     printf("City slicker, eh?\n");
 
+    printf("Loading geonames file...\n");
     world *w = geonames_load_file("../data/allCountries.txt");
+    printf("Geonames file loaded.\n");
     printf("Cities in the world: %d\n", w->length);
     printf("The size of the world: %d\n", w->size);
-
-    net_server *server = net_start_server("127.0.0.1", 8082);
+    
+    int port = 8082;
+    printf("Starting server on port %d\n", port);
+    net_server *s = net_server_start(port);
+    
     for (;;) {
-        int cfd;
-        net_command *cmd;
-
-        if((cfd = net_get_client(net_server)) {
-            if((cmd = net_read_command(cfd))) {
-                printf("Got command from fd %d\n", cfd);
-                // if(cmd->type == net_command_type_bounding_box) {
-                //     double *coords = (double *) cmd->ptr;
-                //     world *res = world_get_cities_in_bounding_box(w, coords[0], coords[1], coords[2], coords[3]);
-                // }
-            }
-        }
-
-        net_close_client(cfd);
+        net_poll(s);
     }
 
-    long long start = mstime();
-    int num_lookups = 10000;
-    for(i = 0; i < num_lookups; i++) {
-        world_get_cities_in_bounding_box(w, 59.1509666443, 59.6238327026, 17.5449085236, 18.6245002747);
-    }
-    long long elapsed = mstime() - start;
-
-    printf("Time elapsed for %d lookups: %lld ms (%.2fms per lookup)\n", num_lookups, elapsed, (elapsed / (float) num_lookups));
-
-    char inputbuf[100];
-    printf("Inputz pls:\n");
-    fgets(inputbuf, sizeof(inputbuf), stdin);
-
+    net_server_close(s);
     world_destroy(w);
 
     return 0;
