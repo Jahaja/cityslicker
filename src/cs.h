@@ -1,12 +1,12 @@
+#ifndef CS_H
+#define CS_H
+
 #define _GNU_SOURCE 1
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
-
-#ifndef CS_H
-#define CS_H
 
 #define LINE_BUFFER_SIZE 1024*30
 #define COLUMN_BUFFER_SIZE 1024*20
@@ -59,5 +59,8 @@ world *world_create();
 int world_destroy(world *w);
 int world_add_city(world *w, city *c);
 int world_get_city_index_by_latitude(world *w, double latitude);
+world *world_get_cities_in_bounding_box(world *w, double minlat, double maxlat, double minlng, double maxlng);
+
+extern world *loaded_world;
 
 #endif

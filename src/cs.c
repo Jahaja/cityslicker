@@ -119,14 +119,18 @@ world *world_get_cities_in_bounding_box(world *w, double minlat, double maxlat, 
     return bbw;
 }
 
+world *loaded_world;
+
 int main() {
     printf("City slicker, eh?\n");
 
     printf("Loading geonames file...\n");
-    world *w = geonames_load_file("../data/allCountries.txt");
-    printf("Geonames file loaded.\n");
-    printf("Cities in the world: %d\n", w->length);
-    printf("The size of the world: %d\n", w->size);
+    int start = mstime();
+    loaded_world = geonames_load_file("../data/allCountries.txt");
+    int elapsed = mstime() - start;
+    printf("Geonames file loaded in %.2f seconds.\n", elapsed / 1000.0);
+    printf("Cities in the world: %d\n", loaded_world->length);
+    printf("The size of the world: %d\n", loaded_world->size);
     
     int port = 8082;
     printf("Starting server on port %d\n", port);
@@ -137,7 +141,7 @@ int main() {
     }
 
     net_server_close(s);
-    world_destroy(w);
+    world_destroy(loaded_world);
 
     return 0;
 }

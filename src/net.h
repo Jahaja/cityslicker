@@ -37,10 +37,6 @@ typedef struct net_file_event {
 
 void net_server_close(net_server *s);
 net_server *net_server_start(int port);
-net_client *net_server_accept(net_server *s);
-void net_client_close(net_server *s, net_client *c);
-int net_client_read(net_client *c);
-int net_client_write(net_client *c);
 int net_poll(net_server *s);
 
 #endif
