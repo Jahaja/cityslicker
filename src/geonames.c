@@ -1,4 +1,5 @@
 #include "cs.h"
+#include "util.h"
 
 static int compare_cities(const void *p1, const void *p2) {
     const city *c1 = *(city * const *) p1;
@@ -15,6 +16,7 @@ static int compare_cities(const void *p1, const void *p2) {
 
 static int geonames_load_column(city *c, geonames_column_t col, const char *valbuf, size_t len) {
     char *eptr;
+
     switch(col) {
     case geonames_id:
         c->id = atoi(valbuf);
@@ -30,9 +32,6 @@ static int geonames_load_column(city *c, geonames_column_t col, const char *valb
         break;
     case geonames_population:
         c->population = strtoll(valbuf, &eptr, 10);
-        break;
-    case geonames_feature_class:
-        c->feature_class = valbuf[0];
         break;
     case geonames_feature_code:
         if(len <= FEATURE_CODE_MAX_LENGTH) {
@@ -50,9 +49,12 @@ static int geonames_load_column(city *c, geonames_column_t col, const char *valb
 
 static city *geonames_read_line(const char *buffer, size_t len) {
     city *c = city_create();
+    if(!c) {
+        log_fatal("Failed to create city object while loading genonames file. Out of memory?");
+    }
 
-    char valbuf[COLUMN_BUFFER_SIZE];
-    int i, j = 0, vlen = 0;
+    char valbuf[COLUMN_BUF_SIZE];
+    unsigned int i, j = 0, vlen = 0;
 
     for(i = 0; i < len; i++) {
         if(buffer[i] != '\t') {
@@ -80,8 +82,9 @@ static int geonames_is_valid_feature_code(const char *feature_code) {
         "PPLF"
     };
 
-    int i;
-    for(i = 0; i < (sizeof(tbl) / sizeof(tbl[0])); i++) {
+    unsigned int i, tlen;
+    tlen = sizeof(tbl) / sizeof(tbl[0]);
+    for(i = 0; i < tlen; i++) {
         if(!strcmp(feature_code, tbl[i]))
             return 1;
     }
@@ -91,15 +94,19 @@ static int geonames_is_valid_feature_code(const char *feature_code) {
 
 world *geonames_load_file(const char *filename) {
     FILE *f = fopen(filename, "r");
+    if(!f) return NULL;
 
-    char buf[LINE_BUFFER_SIZE];
-    char linebuf[LINE_BUFFER_SIZE];
+    char buf[LINE_BUF_SIZE];
+    char linebuf[LINE_BUF_SIZE];
     int num_read, linelen = 0;
     int i = 0, j = 0;
 
     world *w = world_create();
+    if(!w) {
+        log_fatal("Failed to create world object while loading the geonames file. Out of memory?");
+    }
 
-    while((num_read = fread(buf, 1, sizeof(buf), f))) {
+    while((num_read = fread(buf, 1, LINE_BUF_SIZE, f))) {
         for(i = 0; i < num_read; i++) {
             if(buf[i] != '\n') {
                 linebuf[linelen] = buf[i];

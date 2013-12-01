@@ -1,6 +1,7 @@
 #include "cs.h"
 #include "geonames.h"
 #include "net.h"
+#include "util.h"
 
 static int compare_populations(const void *p1, const void *p2) {
     const city *c1 = *(city * const *) p1;
@@ -15,27 +16,15 @@ static int compare_populations(const void *p1, const void *p2) {
     }
 }
 
-long long ustime(void) {
-    struct timeval tv;
-    long long ust;
-
-    gettimeofday(&tv, NULL);
-    ust = ((long long) tv.tv_sec) * 1000000;
-    ust += tv.tv_usec;
-    return ust;
-}
-
-long long mstime(void) {
-    return ustime() / 1000;
-}
-
 city *city_create(void) {
     city *c = malloc(sizeof(city));
+    if(!c) return NULL;
     memset(c, 0, sizeof(city));
     return c;
 }
 
 int city_destroy(city *c) {
+    if(!c) return -1;
     free(c->name);
     free(c);
     return 0;
@@ -43,13 +32,21 @@ int city_destroy(city *c) {
 
 world *world_create(void) {
     world *w = malloc(sizeof(world));
+    if(!w) goto err;
+
     w->cities = malloc(sizeof(city *) * WORLD_MIN_SIZE);
+    if(!w->cities) goto err;
+
     w->size = WORLD_MIN_SIZE;
     w->length = 0;
     return w;
+err:
+    if(w) free(w);
+    return NULL;
 }
 
 int world_destroy(world *w) {
+    if(!w) return -1;
     int i;
     for (i = 0; i < w->length; i++) {
         city_destroy(w->cities[i]);
@@ -60,13 +57,12 @@ int world_destroy(world *w) {
 }
 
 int world_add_city(world *w, city *c) {
+    if(!w || !c) return -1;
+
     if(w->length >= w->size) {
-        int newsize = w->size * WORLD_RESIZE_FACTOR;
+        int newsize = (int) (w->size * WORLD_RESIZE_FACTOR);
         city **tc = realloc(w->cities, sizeof(city *) * newsize);
-        if(!tc) {
-            // handle memory error
-            return -1;
-        }
+        if(!tc) return -1;
 
         w->cities = tc;
         w->size *= WORLD_RESIZE_FACTOR;
@@ -121,20 +117,42 @@ world *world_get_cities_in_bounding_box(world *w, double minlat, double maxlat, 
 
 world *loaded_world;
 
-int main() {
-    printf("City slicker, eh?\n");
 
-    printf("Loading geonames file...\n");
+int main(const int argc, const char *argv[]) {
+    log_info("City Slicker version: 0.1.0\n");
+
+    if(argc < 2) {
+        log_fatal("Invalid number of arguments, database file must be specified.\n");
+    }
+
+    const char *db = argv[1];
+
+    int port;
+    if(argc > 2) {
+        port = atoi(argv[2]);
+        if(port < 1 || port > USHRT_MAX) {
+            log_fatal("Invalid port number: %s\n", argv[2]);
+        }
+    } else {
+        port = 8082;
+    }
+
+    log_info("Loading geonames file...\n");
     int start = mstime();
-    loaded_world = geonames_load_file("../data/allCountries.txt");
+    loaded_world = geonames_load_file(db);
+    if(!loaded_world) {
+        log_fatal("Could not load geonames database (%s).\n", strerror(errno));
+    }
     int elapsed = mstime() - start;
-    printf("Geonames file loaded in %.2f seconds.\n", elapsed / 1000.0);
-    printf("Cities in the world: %d\n", loaded_world->length);
-    printf("The size of the world: %d\n", loaded_world->size);
+    log_info("Geonames file loaded in %.2f seconds.\n", elapsed / 1000.0);
+    log_info("Cities in the world: %d\n", loaded_world->length);
+    log_info("The size of the world: %d\n", loaded_world->size);
     
-    int port = 8082;
-    printf("Starting server on port %d\n", port);
+    log_info("Starting TCP server on port %d\n", port);
     net_server *s = net_server_start(port);
+    if(!s) {
+        log_fatal("Failed to start TCP server: %s\n", strerror(errno));
+    }
     
     for (;;) {
         net_poll(s);

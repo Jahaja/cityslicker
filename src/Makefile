@@ -1,10 +1,10 @@
-CFLAGS= -g -Wall -pedantic
+CFLAGS= -g -Wall -Wextra -pedantic -O3
 LDLIBS=
 CC=c99
 
 all: cs
 
-cs: cs.o geonames.o net.o
+cs: cs.o geonames.o net.o util.o
 
 clean:
-	rm -f cs cs.o geonames.o net.o
+	rm -f cs cs.o geonames.o net.o util.o

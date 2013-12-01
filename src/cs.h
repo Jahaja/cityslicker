@@ -7,11 +7,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
+#include <errno.h>
+#include <limits.h>
 
-#define LINE_BUFFER_SIZE 1024*30
-#define COLUMN_BUFFER_SIZE 1024*20
+#define LINE_BUF_SIZE 1024*20
+#define COLUMN_BUF_SIZE 1024*20
 #define WORLD_MIN_SIZE 10000
-#define WORLD_RESIZE_FACTOR 2
+#define WORLD_RESIZE_FACTOR 1.5
 #define FEATURE_CODE_MAX_LENGTH 10
 
 typedef enum {
@@ -42,8 +44,6 @@ typedef struct city {
     double latitude;
     double longitude;
     long long population;
-    int woe_type;
-    char feature_class;
     char feature_code[FEATURE_CODE_MAX_LENGTH + 1];
 } city;
 

@@ -1,3 +1,7 @@
+#include "net.h"
+#include "cs.h"
+#include "util.h"
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/epoll.h>
@@ -9,9 +13,6 @@
 #include <unistd.h>
 #include <string.h>
 
-#include "net.h"
-#include "cs.h"
-
 #define NET_SERVER_BACKLOG 50
 #define NET_EPOLL_HINT 1024
 
@@ -21,23 +22,44 @@ static void net_file_event_destroy(net_file_event *fe) {
 
 static net_file_event *net_file_event_create(void * ptr, net_file_event_type_t type) {
     net_file_event *fe = malloc(sizeof(net_file_event));
+    if(!fe) return NULL;
     fe->ptr = ptr;
     fe->type = type;
     fe->mask = 0;
     return fe;
 }
 
-static net_client *net_server_accept(net_server *s) {
-    struct sockaddr_in addr;
-    socklen_t addrlen = sizeof(struct sockaddr_in);
-    int fd = accept(s->fd, (struct sockaddr *) &addr, &addrlen);
-    fcntl(fd, F_SETFL, O_NONBLOCK);
-
-    // TODO: add remote ip and port to the client?
+static net_client *net_client_create(int fd, struct sockaddr_in addr) {
     net_client *c = malloc(sizeof(net_client));
+    if(!c) return NULL;
+
     c->fd = fd;
     strcpy(c->ip, inet_ntoa(addr.sin_addr));
     c->port = ntohs(addr.sin_port);
+    return c;
+}
+
+static net_client *net_server_accept(net_server *s) {
+    struct sockaddr_in addr;
+    socklen_t addrlen = sizeof(struct sockaddr_in);
+    
+    int fd = accept(s->fd, (struct sockaddr *) &addr, &addrlen);
+    if(fd == -1) {
+        log_error("Failed to accept client connection: %s", strerror(errno));
+        return NULL;
+    }
+
+    int res = fcntl(fd, F_SETFL, O_NONBLOCK);
+    if(res != 0) {
+        log_error("Failed to flag the fd as non-blocking.");
+        return NULL;
+    }
+
+    net_client *c = net_client_create(fd, addr);
+    if(!c) {
+        log_error("Failed to create client: %s", strerror(errno));
+        return NULL;
+    }
 
     net_file_event *fe = net_file_event_create((void *) c, net_file_event_type_client);
 
@@ -49,13 +71,13 @@ static net_client *net_server_accept(net_server *s) {
 
     epoll_ctl(s->epfd, EPOLL_CTL_ADD, fd, &ee);
 
-    printf("Client %s:%d connected\n", c->ip, c->port);
+    log_info("Client %s:%d connected\n", c->ip, c->port);
 
     return c;
 }
 
 static void net_client_close(net_server *s, net_client *c) {
-    printf("Client %s:%d disconnected. Removing...\n", c->ip, c->port);
+    log_info("Client %s:%d disconnected. Removing...\n", c->ip, c->port);
     epoll_ctl(s->epfd, EPOLL_CTL_DEL, c->fd, NULL);
     close(c->fd);
     free(c);
@@ -67,7 +89,6 @@ static int net_client_write(net_client *c) {
         if(written == 0) {
             return -1;
         }
-        printf("Wrote %d bytes to %s\n", written, c->ip);
         c->buflen = 0;
         return written;
     }
@@ -84,10 +105,8 @@ static int net_client_read(net_client *c) {
         return -1;
     }
 
-    printf("Read %d bytes from client %s.\n", num_read, c->ip);
-
     if(num_read != datalen) {
-        printf("Got some strange input, need 16 bytes!\n");
+        log_info("Got some strange input, need 16 bytes!\n");
         return -1;
     }
 
@@ -151,6 +170,9 @@ net_server *net_server_start(int port) {
 
 int net_poll(net_server *s) {
     int num_events = epoll_wait(s->epfd, s->events, s->max_events, -1);
+    if(num_events == -1 && errno != EINTR) {
+        log_fatal("An error occured while waiting for fd events: %s.", strerror(errno));
+    }
     int i;
     for(i = 0; i < num_events; i++) {
         net_file_event *fe = (net_file_event *) s->events[i].data.ptr;
