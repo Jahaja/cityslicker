@@ -3,7 +3,7 @@
 A TCP server (epoll based) in C for searching geonames locations within a bounding box.
 It will return the geoname-id of the cities within the requested bounding box.
 
-**NOTE**: This is an educational project to familiarize myself with C and a few concepts within it (e.g epoll). Use at your own risk.
+**NOTE**: This is an educational project to further familiarize myself with C and a few concepts within it (namely epoll based socket server). Use at your own risk.
 
 #### Usage
 1. Download/Clone the files and navigate to the `src/` directory.
