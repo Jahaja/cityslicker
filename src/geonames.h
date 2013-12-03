@@ -1,5 +1,5 @@
 /*
-* cityslicker by Joakim Hamrén
+* cityslicker by Joakim Hamren
 * 
 * To the extent possible under law, the person who associated CC0 with
 * cityslicker has waived all copyright and related or neighboring rights

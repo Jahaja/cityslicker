@@ -1,4 +1,4 @@
-CFLAGS= -g -Wall -Wextra -pedantic -O3
+CFLAGS= -g -Wall -Wextra -pedantic -O2
 LDLIBS=
 CC=c99
 
