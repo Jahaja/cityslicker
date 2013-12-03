@@ -156,8 +156,7 @@ int main(const int argc, const char *argv[]) {
     }
     int elapsed = mstime() - start;
     log_info("Geonames file loaded in %.2f seconds.\n", elapsed / 1000.0);
-    log_info("Cities in the world: %d\n", loaded_world->length);
-    log_info("The size of the world: %d\n", loaded_world->size);
+    log_info("Cities loaded: %d (%d slots allocated)\n", loaded_world->length, loaded_world->size);
     
     log_info("Starting TCP server on port %d\n", port);
     net_server *s = net_server_start(port);

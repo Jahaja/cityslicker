@@ -170,6 +170,7 @@ net_server *net_server_start(int port) {
     net_file_event *fe = net_file_event_create((void *) s, net_file_event_type_server);
 
     struct epoll_event ee;
+    memset(&ee, 0, sizeof(struct epoll_event));
     ee.events |= EPOLLIN;
     ee.data.u64 = 0;
     ee.data.ptr = (void *) fe;

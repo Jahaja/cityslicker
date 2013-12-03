@@ -1,7 +1,7 @@
 ## Cityslicker
 
 A TCP server (epoll based) in C for searching geonames locations within a bounding box.
-It will return the geoname-id of the cities within the requested bounding box.
+It will return the geoname-id of the cities within the requested bounding box. The result is sorted on population, largest first.
 
 **NOTE**: This is an educational project to further familiarize myself with C and a few concepts within it (namely epoll based socket server). Use at your own risk.
 
