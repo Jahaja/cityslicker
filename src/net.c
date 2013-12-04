@@ -50,48 +50,58 @@ static net_client *net_client_create(int fd, struct sockaddr_in addr) {
     return c;
 }
 
+static void net_client_close(net_server *s, net_client *c) {
+    log_info("Client %s:%d disconnected.\n", c->ip, c->port);
+    epoll_ctl(s->epfd, EPOLL_CTL_DEL, c->fd, NULL);
+    close(c->fd);
+    free(c);
+}
+
 static net_client *net_server_accept(net_server *s) {
     struct sockaddr_in addr;
     socklen_t addrlen = sizeof(struct sockaddr_in);
+    int fd;
+    net_client *c = NULL;
+    net_file_event *fe = NULL;
     
-    int fd = accept(s->fd, (struct sockaddr *) &addr, &addrlen);
-    if(fd == -1) {
-        log_error("Failed to accept client connection: %s", strerror(errno));
-        return NULL;
-    }
+    if((fd = accept(s->fd, (struct sockaddr *) &addr, &addrlen)) == -1)
+        goto err;
 
-    int res = fcntl(fd, F_SETFL, O_NONBLOCK);
-    if(res != 0) {
-        log_error("Failed to flag the fd as non-blocking.");
-        return NULL;
-    }
+    if(fcntl(fd, F_SETFL, O_NONBLOCK) != 0)
+        goto err;
 
-    net_client *c = net_client_create(fd, addr);
-    if(!c) {
-        log_error("Failed to create client: %s", strerror(errno));
-        return NULL;
-    }
+    if((c = net_client_create(fd, addr)) == NULL)
+        goto err;
 
-    net_file_event *fe = net_file_event_create((void *) c, net_file_event_type_client);
+    if((fe = net_file_event_create((void *) c, net_file_event_type_client)) == NULL)
+        goto err;
 
     struct epoll_event ee;
+    memset(&ee, 0, sizeof(struct epoll_event));
     ee.events |= EPOLLIN;
     ee.events |= EPOLLOUT;
     ee.data.u64 = 0;
     ee.data.ptr = (void *) fe;
 
-    epoll_ctl(s->epfd, EPOLL_CTL_ADD, fd, &ee);
+    if(epoll_ctl(s->epfd, EPOLL_CTL_ADD, fd, &ee) != 0)
+        goto err;
 
     log_info("Client %s:%d connected\n", c->ip, c->port);
 
     return c;
-}
 
-static void net_client_close(net_server *s, net_client *c) {
-    log_info("Client %s:%d disconnected. Removing...\n", c->ip, c->port);
-    epoll_ctl(s->epfd, EPOLL_CTL_DEL, c->fd, NULL);
-    close(c->fd);
-    free(c);
+err:
+    log_info("Failed to accept client connection: %s\n", strerror(errno));
+    
+    if(c) 
+        net_client_close(s, c);
+    else if(fd)
+        close(fd);
+
+    if(fe) 
+        net_file_event_destroy(fe);
+
+    return NULL;
 }
 
 static int net_client_write(net_client *c) {
