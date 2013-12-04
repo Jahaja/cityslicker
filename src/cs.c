@@ -164,12 +164,10 @@ int main(const int argc, const char *argv[]) {
         log_fatal("Failed to start TCP server: %s\n", strerror(errno));
     }
     
+    // poll forever
     for (;;) {
         net_poll(s);
     }
-
-    net_server_close(s);
-    world_destroy(loaded_world);
 
     return 0;
 }

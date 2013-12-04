@@ -148,14 +148,6 @@ static int net_client_read(net_client *c) {
     return num_read;
 }
 
-void net_server_close(net_server *s) {
-    if(!s) return;
-    close(s->epfd);
-    close(s->fd);
-    free(s->events);
-    free(s);
-}
-
 static net_server *net_server_create(void) {
     net_server *s = malloc(sizeof(net_server));
     if(!s) return NULL;
