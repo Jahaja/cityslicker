@@ -25,4 +25,5 @@ Cityslicker works by parsing and loading all cities from the geonames file into 
 
 #### License
 Released under CC0 (Public Domain Dedication).
+
 http://creativecommons.org/publicdomain/zero/1.0/

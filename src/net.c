@@ -149,14 +149,37 @@ static int net_client_read(net_client *c) {
 }
 
 void net_server_close(net_server *s) {
+    if(!s) return;
     close(s->epfd);
     close(s->fd);
     free(s->events);
     free(s);
 }
 
+static net_server *net_server_create(void) {
+    net_server *s = malloc(sizeof(net_server));
+    if(!s) return NULL;
+    s->events = malloc(sizeof(struct epoll_event) * NET_MAX_EVENTS);
+    if(!s->events) {
+        free(s);
+        return NULL;
+    }
+    s->max_events = NET_MAX_EVENTS;
+    return s;
+}
+
+static void net_server_destroy(net_server *s) {
+    if(!s) return;
+    free(s->events);
+    if(s->fd) close(s->fd);
+    if(s->epfd) close(s->epfd);
+    free(s);
+}
+
 net_server *net_server_start(int port) {
-    int optval = 1;
+    int optval = 1, res;
+    net_file_event *fe = NULL;
+
     struct sockaddr_in addr;
     memset(&addr, 0, sizeof(struct sockaddr_in));
     addr.sin_family = AF_INET;
@@ -165,19 +188,27 @@ net_server *net_server_start(int port) {
 
     signal(SIGPIPE, SIG_IGN);
 
-    net_server *s = malloc(sizeof(net_server));
-    s->events = malloc(sizeof(struct epoll_event) * NET_MAX_EVENTS);
-    s->max_events = NET_MAX_EVENTS;
+    net_server *s = net_server_create();
+    if(!s) goto err;
+
     s->fd = socket(AF_INET, SOCK_STREAM, 0);
+    if(s->fd == -1) goto err;
+
     setsockopt(s->fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
-    bind(s->fd, (const struct sockaddr *) &addr, sizeof(struct sockaddr_in));
-    listen(s->fd, NET_SERVER_BACKLOG);
+    res = bind(s->fd, (const struct sockaddr *) &addr, sizeof(struct sockaddr_in));
+    if(res != 0) goto err;
+
+    res = listen(s->fd, NET_SERVER_BACKLOG);
+    if(res != 0) goto err;
 
     // create epoll instance and add the server fd
     int epfd = epoll_create(NET_EPOLL_HINT);
+    if(epfd == -1) goto err;
+
     s->epfd = epfd;
 
-    net_file_event *fe = net_file_event_create((void *) s, net_file_event_type_server);
+    fe = net_file_event_create((void *) s, net_file_event_type_server);
+    if(!fe) goto err;
 
     struct epoll_event ee;
     memset(&ee, 0, sizeof(struct epoll_event));
@@ -185,9 +216,16 @@ net_server *net_server_start(int port) {
     ee.data.u64 = 0;
     ee.data.ptr = (void *) fe;
 
-    epoll_ctl(epfd, EPOLL_CTL_ADD, s->fd, &ee);
+    res = epoll_ctl(epfd, EPOLL_CTL_ADD, s->fd, &ee);
+    if(res == -1) goto err;
 
     return s;
+
+err:
+    log_error("Failed to start server: %s\n", strerror(errno));
+    if(s) net_server_destroy(s);
+    if(fe) net_file_event_destroy(fe);
+    return NULL;
 }
 
 int net_poll(net_server *s) {
