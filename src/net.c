@@ -86,13 +86,9 @@ static net_client *net_server_accept(net_server *s) {
     if(epoll_ctl(s->epfd, EPOLL_CTL_ADD, fd, &ee) != 0)
         goto err;
 
-    log_info("Client %s:%d connected\n", c->ip, c->port);
-
     return c;
 
 err:
-    log_info("Failed to accept client connection: %s\n", strerror(errno));
-    
     if(c) 
         net_client_close(s, c);
     else if(fd)
@@ -232,6 +228,7 @@ int net_poll(net_server *s) {
         if(fe->type == net_file_event_type_client) {
             if(s->events[i].events & EPOLLIN) {
                 if(net_client_read((net_client *)fe->ptr) == -1) {
+                    log_error("Failed to read data from client. Closing client.");
                     net_client_close(s, (net_client *)fe->ptr);
                     net_file_event_destroy(fe);
                     continue;
@@ -239,6 +236,7 @@ int net_poll(net_server *s) {
             }
             if (s->events[i].events & EPOLLOUT) {
                 if(net_client_write((net_client *)fe->ptr) == -1) {
+                    log_error("Failed to write data from client. Closing client.");
                     net_client_close(s, (net_client *)fe->ptr);
                     net_file_event_destroy(fe);
                     continue;
@@ -250,7 +248,12 @@ int net_poll(net_server *s) {
             }
         }
         else if(fe->type == net_file_event_type_server && s->events[i].events & EPOLLIN) {
-            net_server_accept((net_server *)fe->ptr);
+            net_client *c = net_server_accept((net_server *)fe->ptr);
+            if(!c) {
+                log_info("Failed to accept client connection: %s\n", strerror(errno));
+            } else {
+                log_info("Client %s:%d connected\n", c->ip, c->port);
+            }
         }
     }
     return num_events;
