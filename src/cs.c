@@ -28,7 +28,7 @@ static int compare_populations(const void *p1, const void *p2) {
 }
 
 city *city_create(void) {
-    city *c = malloc(sizeof(city));
+    city *c = malloc(sizeof *c);
     if(!c) return NULL;
     memset(c, 0, sizeof(city));
     return c;
@@ -42,10 +42,10 @@ int city_destroy(city *c) {
 }
 
 world *world_create(void) {
-    world *w = malloc(sizeof(world));
+    world *w = malloc(sizeof *w);
     if(!w) goto err;
 
-    w->cities = malloc(sizeof(city *) * WORLD_MIN_SIZE);
+    w->cities = malloc((sizeof w->cities) * WORLD_MIN_SIZE);
     if(!w->cities) goto err;
 
     w->size = WORLD_MIN_SIZE;

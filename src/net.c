@@ -32,7 +32,7 @@ static void net_file_event_destroy(net_file_event *fe) {
 }
 
 static net_file_event *net_file_event_create(void * ptr, net_file_event_type_t type) {
-    net_file_event *fe = malloc(sizeof(net_file_event));
+    net_file_event *fe = malloc(sizeof *fe);
     if(!fe) return NULL;
     fe->ptr = ptr;
     fe->type = type;
@@ -41,7 +41,7 @@ static net_file_event *net_file_event_create(void * ptr, net_file_event_type_t t
 }
 
 static net_client *net_client_create(int fd, struct sockaddr_in addr) {
-    net_client *c = malloc(sizeof(net_client));
+    net_client *c = malloc(sizeof *c);
     if(!c) return NULL;
 
     c->fd = fd;
@@ -102,12 +102,11 @@ err:
 
 static int net_client_write(net_client *c) {
     if(c->buflen) {
-        int written = write(c->fd, c->buf, c->buflen);
-        if(written == 0) {
+        int n = write(c->fd, c->buf, c->buflen);
+        if(n == -1)
             return -1;
-        }
         c->buflen = 0;
-        return written;
+        return n;
     }
 
     return 0;
@@ -119,7 +118,7 @@ static int net_client_read(net_client *c) {
     char data[datalen];
     num_read = read(c->fd, data, datalen);
     if(num_read == 0) {
-        return -1;
+        return 0;
     }
 
     if(num_read != datalen) {
@@ -145,7 +144,7 @@ static int net_client_read(net_client *c) {
 }
 
 static net_server *net_server_create(void) {
-    net_server *s = malloc(sizeof(net_server));
+    net_server *s = malloc(sizeof *s);
     if(!s) return NULL;
     s->events = malloc(sizeof(struct epoll_event) * NET_MAX_EVENTS);
     if(!s->events) {
@@ -221,14 +220,15 @@ int net_poll(net_server *s) {
     if(num_events == -1 && errno != EINTR) {
         log_fatal("An error occured while waiting for fd events: %s.", strerror(errno));
     }
-    int i;
+    int i, num_read;
     for(i = 0; i < num_events; i++) {
         net_file_event *fe = (net_file_event *) s->events[i].data.ptr;
 
         if(fe->type == net_file_event_type_client) {
             if(s->events[i].events & EPOLLIN) {
-                if(net_client_read((net_client *)fe->ptr) == -1) {
-                    log_error("Failed to read data from client. Closing client.");
+                if((num_read = net_client_read((net_client *)fe->ptr)) <= 0) {
+                    if(num_read == -1)
+                        log_error("Failed to read data from client. Closing client.\n");
                     net_client_close(s, (net_client *)fe->ptr);
                     net_file_event_destroy(fe);
                     continue;
@@ -236,7 +236,7 @@ int net_poll(net_server *s) {
             }
             if (s->events[i].events & EPOLLOUT) {
                 if(net_client_write((net_client *)fe->ptr) == -1) {
-                    log_error("Failed to write data from client. Closing client.");
+                    log_error("Failed to write data from client. Closing client.\n");
                     net_client_close(s, (net_client *)fe->ptr);
                     net_file_event_destroy(fe);
                     continue;
