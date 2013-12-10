@@ -1,11 +1,13 @@
-CFLAGS= -g -Wall -Wextra -pedantic -O2
-LDLIBS=
+CFLAGS=-g -Wall -Wextra -pedantic -O2
+LDFLAGS=
 CC=c99
 
-all: src/cs
+all: cs
 
-src/cs: src/*.o
+cs: src/cs.o src/net.o src/geonames.o src/util.o 
+	$(CC) -o $@ $^
 
-.PHONY: clean
 clean:
-	rm -f src/cs src/*.o
+	rm -f cs src/*.o
+
+.PHONY: all distclean clean msgpack
